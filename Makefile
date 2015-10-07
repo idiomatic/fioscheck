@@ -1,14 +1,18 @@
 ICED = node_modules/.bin/iced
 PHANTOMJS = /usr/local/bin/phantomjs
-ADDRESS = 2149 Magnolia Ave 90806
+#ADDRESS = 2149 Magnolia Ave 90806
+#ADDRESS = 40 CEDAR WALK UNIT P3 CA 90802
+#ADDRESS = 7140 E MEZZANINE WAY 90808
+COORDS = 33.8145,-118.094
+ADDRESS = $($(ICED) rgeocode.iced $(COORDS))
 
 run: deps build
 	$(PHANTOMJS) fioscheck.js $(ADDRESS)
 
-build: fioscheck.js
+build: fioscheck.js rgeocode.js
 
-fioscheck.js: fioscheck.iced
-	$(ICED) -I inline -c fioscheck.iced
+%.js: %.iced
+	$(ICED) -I inline -p $< > $@
 
 deps: $(ICED) $(PHANTOMJS)
 
@@ -19,6 +23,6 @@ $(PHANTOMJS):
 	brew install phantomjs
 
 clean:
-	-rm *~ fioscheck.js
+	-rm *~ fioscheck.js rgeocode.js
 
 distclean:
