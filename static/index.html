@@ -11,16 +11,82 @@
     <script src="https://maps.googleapis.com/maps/api/js?callback=initMap" async defer></script>
     <script>
 
+function serialize(obj) {
+  var str = [];
+  for (var p in obj)
+    if (obj.hasOwnProperty(p)) {
+      str.push(encodeURIComponent(p) + "=" + encodeURIComponent(obj[p]));
+    }
+  return str.join("&");
+}
+
 var map;
 function initMap() {
+    var geocoder = new google.maps.Geocoder;
+    var infoWindow = new google.maps.InfoWindow;
     map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 11,
-        center: {lat: 33.90, lng: -118.3}
+        zoom: 14,
+        center: {lat: 33.84, lng: -118.15}
     });
     map.data.setStyle(function(feature) {
-        return {icon: feature.getProperty('status') + '.png'};
+        var status = feature.getProperty('status');
+        return {
+            icon: status + '.png',
+            title: feature.getProperty('address'),
+            opacity: status == 'checking' ? 0.5 : 1.0
+        };
     });
     map.data.loadGeoJson('markers?latitude=34&longitude=-118&distance=100000');
+    map.addListener('click', function(e) {
+        var marker = new google.maps.Marker({
+            position: e.latLng,
+            map: map,
+            icon: 'checking.png',
+            opacity: 0.5
+        });
+        geocoder.geocode({'location': e.latLng}, function(results, status) {
+            if (status === google.maps.GeocoderStatus.OK) {
+                marker.setOpacity(1.0);
+                if (results[0]) {
+                    var data = {};
+                    var components = results[0].address_components;
+                    for (var i = 0; i < components.length; i++) {
+                        var component = components[i];
+                        data[component.types[0]] = component.short_name;
+                    }
+                    var address = data.street_number + " " + data.route;
+                    var location = address + ", " + data.postal_code;
+                    infoWindow.setContent(location);
+                    infoWindow.open(map, marker);
+                    var request = new XMLHttpRequest();
+                    request.open("POST", "/check", true);
+                    request.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+                    var obj = {address:address, zipcode:data.postal_code, latitude:e.latLng.lat(), longitude:e.latLng.lng()};
+                    request.onreadystatechange = function() {
+                        console.log(request);
+                        if (request.readyState == 4 && request.status == 200) {
+                            switch (request.responseText) {
+                            case "true":
+                                marker.setIcon("can.png");
+                                break
+                            case "false":
+                                marker.setIcon("cannot.png");
+                                break
+                            default:
+                                marker.setMap(null);
+                            }
+                        }
+                    }
+                    request.send(serialize(obj));
+                } else {
+                    window.alert('No results found');
+                }
+            } else {
+                marker.setMap(null);
+                window.alert('Geocoder failed due to: ' + status);
+            }
+        });
+    });
 }
 
     </script>
