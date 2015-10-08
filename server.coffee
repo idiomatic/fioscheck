@@ -19,6 +19,12 @@ cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
 port = 3001
+horsemanOptions =
+    injectJquery: false
+    timeout: 30000
+    #proxy: 'localhost:2001'
+    #proxyType: 'socks5'
+checkCount = 0
 
 app = koa()
 app.use(bodyParser())
@@ -70,17 +76,19 @@ app.use route.post '/check', (next) ->
     latitude  = parseFloat(latitude)
     longitude = parseFloat(longitude)
     location = "#{address}, #{zipcode}"
+    fios = undefined
 
     @assert(address and /./.test(address), 400, 'Address missing')
     @assert(zipcode and /\d{5}/.test(zipcode), 400, 'Zipcode missing')
 
-    #console.log "checking #{location}"
+    console.log "##{++checkCount} checking #{location}"
 
-    yield (cb) ->
-        checking.addLocation(location, {latitude, longitude}, cb)
+    if latitude? and longitude?
+        yield (cb) ->
+            checking.addLocation(location, {latitude, longitude}, cb)
 
     url = 'http://www.verizon.com/foryourhome/ORDERING/CheckAvailability.aspx?type=pheonix&fromPersonalisation=y&flowtype=fios&incid=newheronull_null_null_es+clk'
-    horseman = new Horseman(injectJquery:false, timeout:30000)
+    horseman = new Horseman(horsemanOptions)
     yield horseman.open(url)
     yield horseman.type('#txtAddress', address)
     yield horseman.type('#txtZip', zipcode)
@@ -90,7 +98,9 @@ app.use route.post '/check', (next) ->
     if yield horseman.exists('#securityCheck')
         # captcha.  damn.
         yield horseman.screenshot('horseman securitycheck.png')
-        @body = '"captcha"\n'
+        console.log "captcha"
+        #@throw(429, 'captcha')
+        @status = 429
 
     else
         if yield horseman.exists('#dvAddressOption2')
@@ -119,16 +129,27 @@ app.use route.post '/check', (next) ->
 
             fios = yield horseman.exists('.products_list h4:contains("FiOS Internet")')
 
-            if latitude? and longitude?
-                yield (cb) ->
-                    (if fios then can else cannot).addLocation(location, {latitude, longitude}, cb)
+        else if yield horseman.exists(':contains("service you wanted isn\'t available")')
+            fios = false
+            #html = yield horseman.html()
+            #yield (cb) -> fs.writeFile('horseman not found.html', html, cb)
+            #yield horseman.screenshot('horseman not found.png')
 
-            @body = JSON.stringify(fios)
+        else
+            @body = "unknown\n"
 
     yield horseman.close()
 
-    yield (cb) ->
-        checking.removeLocation(location, cb)
+    if latitude? and longitude?
+        yield [
+            (cb) ->
+                (if fios then can else cannot).addLocation(location, {latitude, longitude}, cb)
+            (cb) ->
+                checking.removeLocation(location, cb)
+        ]
+
+    @body = JSON.stringify(fios)
+
 
 app.use(require('koa-static')('static'))
 
