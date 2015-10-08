@@ -13,7 +13,6 @@ Horseman   = require 'node-horseman'
 redisClient = redis.createClient()
 
 geo      = georedis.initialize(redisClient, zset:'fios')
-has      = geo.addSet('has')
 can      = geo.addSet('can')
 cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
@@ -37,29 +36,30 @@ app.use (next) ->
     yield next
 
 geojson = (location_groups) ->
-    featureize = (latitude, longitude, properties) ->
-        #latitude  = latitude.toFixed(6)
-        #longitude = longitude.toFixed(6)
-        type: 'Feature'
-        geometry:
-            type: 'Point'
-            coordinates: [longitude, latitude]
-        properties: properties
     features = []
     for status, locations of location_groups
         for {latitude, longitude, key} in locations
-            features.push(featureize(latitude, longitude, address:key, status:status))
+            #latitude  = latitude.toFixed(6)
+            #longitude = longitude.toFixed(6)
+            feature =
+                type: 'Feature'
+                geometry:
+                    type: 'Point'
+                    coordinates: [longitude, latitude]
+                properties:
+                    address: key
+                    status: status
+            features.push(feature)
     return {type:'FeatureCollection', features}
 
 app.use route.get '/markers', (next) ->
     {latitude, longitude, distance} = @state
-    [hasData, canData, cannotData, checkingData] = yield [
-        (cb) -> has.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
+    [canData, cannotData, checkingData] = yield [
         (cb) -> can.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
         (cb) -> cannot.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
         (cb) -> checking.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
     ]
-    @body = geojson {has:hasData, can:canData, cannot:cannotData, checking:checkingData}
+    @body = geojson {can:canData, cannot:cannotData, checking:checkingData}
 
 app.use route.get '/passed', (next) ->
     @body = {'90025': {longitude:34.043712, latitude:-118.460739, passed:0}}
@@ -104,12 +104,10 @@ app.use route.post '/check', (next) ->
 
     else
         if yield horseman.exists('#dvAddressOption2')
-            #yield horseman.screenshot('horseman ambiguous.png')
             yield horseman.click('#dvAddressOption0 a')
             # fall through into #dvAddressOption0
 
         if yield horseman.exists('#dvAddressOption0')
-            #yield horseman.screenshot('horseman confirm.png')
             # "Is this your address?"  Yes.
             yield horseman.click('input[value="Continue"]')
             yield horseman.waitForNextPage()
@@ -131,9 +129,6 @@ app.use route.post '/check', (next) ->
 
         else if yield horseman.exists(':contains("service you wanted isn\'t available")')
             fios = false
-            #html = yield horseman.html()
-            #yield (cb) -> fs.writeFile('horseman not found.html', html, cb)
-            #yield horseman.screenshot('horseman not found.png')
 
         else
             @body = "unknown\n"
@@ -141,12 +136,12 @@ app.use route.post '/check', (next) ->
     yield horseman.close()
 
     if latitude? and longitude?
-        yield [
-            (cb) ->
-                (if fios then can else cannot).addLocation(location, {latitude, longitude}, cb)
-            (cb) ->
-                checking.removeLocation(location, cb)
-        ]
+        if fios?
+            yield (cb) ->
+                bucket = if fios then can else cannot
+                bucket.addLocation(location, {latitude, longitude}, cb)
+        yield (cb) ->
+            checking.removeLocation(location, cb)
 
     @body = JSON.stringify(fios)
 
