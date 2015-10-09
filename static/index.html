@@ -1,14 +1,49 @@
 <!DOCTYPE html>
 <html>
   <head>
+    <meta name="viewport" content="initial-scale=1.0, user-scalable=no">
     <style type="text/css">
       html, body { height: 100%; margin: 0; padding: 0; }
       #map { height: 100%; }
+      .controls {
+          margin-top: 10px;
+          border: 1px solid transparent;
+          border-radius: 2px 0 0 2px;
+          box-sizing: border-box;
+          -moz-box-sizing: border-box;
+          height: 29px;
+          outline: none;
+          box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+      }
+      #pac-input {
+          background-color: #fff;
+          font-family: Roboto;
+          font-size: 12px;
+          font-weight: 300;
+          margin-left: 12px;
+          padding: 0 11px 0 13px;
+          text-overflow: ellipsis;
+          width: 300px;
+      }
+      #pac-input:focus { border-color: #4d90fe; }
+      .pac-container { font-family: Roboto; }
+      #type-selector {
+          color: #fff;
+          background-color: #4d90fe;
+          padding: 5px 11px 0px 11px;
+      }
+      #type-selector label {
+          font-family: Roboto;
+          font-size: 12px;
+          font-weight: 300;
+      }
+
     </style>
   </head>
   <body>
+    <input id="pac-input" class="controls" type="text" placeholder="Search Box">
     <div id="map"></div>
-    <script src="https://maps.googleapis.com/maps/api/js?callback=initMap" async defer></script>
+    <script src="https://maps.googleapis.com/maps/api/js?callback=initMap&libraries=places" async defer></script>
     <script>
 
 function serialize(obj) {
@@ -86,6 +121,15 @@ function initMap() {
                 window.alert('Geocoder failed due to: ' + status);
             }
         });
+    });
+    var input = document.getElementById('pac-input');
+    var searchBox = new google.maps.places.SearchBox(input);
+    map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+    map.addListener('bounds_changed', function() {
+        searchBox.setBounds(map.getBounds());
+    });
+    searchBox.addListener('places_changed', function() {
+        console.log(searchBox.getPlaces());
     });
 }
 
