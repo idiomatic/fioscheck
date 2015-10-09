@@ -1,5 +1,12 @@
 #!/usr/bin/env coffee
 
+# TODO search box
+# TODO search result regions (e.g., search by zipcode)
+# TODO auto-check on precise address search
+# TODO /markers latitude/longitude/distance based on map.getBounds() and map.getZoom()
+# TODO double click to zoom
+
+
 fs         = require 'fs'
 util       = require 'util'
 koa        = require 'koa'
@@ -110,11 +117,13 @@ app.use route.post '/check', (next) ->
         if yield horseman.exists('#dvAddressOption0')
             # "Is this your address?"  Yes.
             yield horseman.click('input[value="Continue"]')
+            #yield horseman.screenshot('horseman address verification.png')
             yield horseman.waitForNextPage()
 
             yield horseman.waitForSelector('#checkavailability, #changeserv')
 
             if yield horseman.exists(':contains("This address already has Verizon service")')
+                #yield horseman.screenshot('horseman already has verizon.png')
                 yield horseman.click('#rdoNoNotMine ~ a')
                 yield horseman.waitForSelector(':contains("Is the current resident staying?")')
                 yield horseman.click('#rdoNoAmMovingThere ~ a')
@@ -133,13 +142,20 @@ app.use route.post '/check', (next) ->
         else
             @body = "unknown\n"
 
-    yield horseman.close()
+    horseman.close()
 
     if latitude? and longitude?
         if fios?
-            yield (cb) ->
-                bucket = if fios then can else cannot
-                bucket.addLocation(location, {latitude, longitude}, cb)
+            if fios
+                yield [
+                    (cb) -> can.addLocation(location, {latitude, longitude}, cb)
+                    (cb) -> cannot.removeLocation(location, cb)
+                ]
+            else
+                yield [
+                    (cb) -> cannot.addLocation(location, {latitude, longitude}, cb)
+                    (cb) -> can.removeLocation(location, cb)
+                ]
         yield (cb) ->
             checking.removeLocation(location, cb)
 
