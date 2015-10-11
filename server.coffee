@@ -5,6 +5,7 @@
 # TODO auto-check on precise address search
 # TODO /markers latitude/longitude/distance based on map.getBounds() and map.getZoom()
 # TODO double click to zoom
+# TODO scale icons in relation to map scale
 
 
 fs         = require 'fs'
@@ -17,14 +18,14 @@ georedis   = require 'georedis'
 redis      = require 'redis'
 Horseman   = require 'node-horseman'
 
-redisClient = redis.createClient()
+redisClient = redis.createClient(process.env.REDIS_URL)
 
 geo      = georedis.initialize(redisClient, zset:'fios')
 can      = geo.addSet('can')
 cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
-port = 3001
+port = process.env.PORT ? 3001
 horsemanOptions =
     injectJquery: false
     timeout: 30000
@@ -61,12 +62,13 @@ geojson = (location_groups) ->
 
 app.use route.get '/markers', (next) ->
     {latitude, longitude, distance} = @state
-    [canData, cannotData, checkingData] = yield [
-        (cb) -> can.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
-        (cb) -> cannot.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
-        (cb) -> checking.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
-    ]
-    @body = geojson {can:canData, cannot:cannotData, checking:checkingData}
+    @body = geojson yield
+        can: (cb) ->
+            can.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
+        cannot: (cb) ->
+            cannot.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
+        checking: (cb) ->
+            checking.nearby({latitude, longitude}, distance, withCoordinates:true, cb)
 
 app.use route.get '/passed', (next) ->
     @body = {'90025': {longitude:34.043712, latitude:-118.460739, passed:0}}
@@ -97,6 +99,8 @@ app.use route.post '/check', (next) ->
     url = 'http://www.verizon.com/foryourhome/ORDERING/CheckAvailability.aspx?type=pheonix&fromPersonalisation=y&flowtype=fios&incid=newheronull_null_null_es+clk'
     horseman = new Horseman(horsemanOptions)
     yield horseman.open(url)
+    yield horseman.waitForSelector('#txtAddress')
+
     yield horseman.type('#txtAddress', address)
     yield horseman.type('#txtZip', zipcode)
     yield horseman.click('#btnContinueOverlay')
@@ -106,8 +110,10 @@ app.use route.post '/check', (next) ->
         # captcha.  damn.
         yield horseman.screenshot('horseman securitycheck.png')
         console.log "captcha"
+        # HACK no throw because we need to remove location from checking set
         #@throw(429, 'captcha')
         @status = 429
+        @body = 'captcha'
 
     else
         if yield horseman.exists('#dvAddressOption2')
@@ -137,10 +143,27 @@ app.use route.post '/check', (next) ->
             fios = yield horseman.exists('.products_list h4:contains("FiOS Internet")')
 
         else if yield horseman.exists(':contains("service you wanted isn\'t available")')
+            console.log "unavailable"
             fios = false
 
+        else if yield horseman.exists(':contains("address you entered is not served by Verizon")')
+            console.log "no service"
+            fios = false
+
+        else if yield horseman.exists(':contains("unable to validate the address")')
+            console.log "invalid location #{location}"
+            #@throw(400, "invalid location")
+            @status = 400
+            @body = 'invalid location'
+
+        # TODO This address already has a pending Verizon Order
+
         else
-            @body = "unknown\n"
+            html = yield horseman.html()
+            yield (cb) -> fs.writeFile('horseman unknown.html', html, cb)
+            yield horseman.screenshot('horseman unknown.png')
+            console.log "unknown"
+            @body = "unknown"
 
     horseman.close()
 

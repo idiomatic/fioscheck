@@ -55,23 +55,21 @@ function serialize(obj) {
   return str.join("&");
 }
 
-var map;
 function initMap() {
     var geocoder = new google.maps.Geocoder;
     var infoWindow = new google.maps.InfoWindow;
-    map = new google.maps.Map(document.getElementById('map'), {
-        zoom: 14,
+    var map = new google.maps.Map(document.getElementById('map'), {
+        zoom: 11,
         center: {lat: 33.84, lng: -118.15}
     });
     map.data.setStyle(function(feature) {
         var status = feature.getProperty('status');
         return {
             icon: status + '.png',
-            title: feature.getProperty('address'),
-            opacity: status == 'checking' ? 0.5 : 1.0
+            title: feature.getProperty('address')
         };
     });
-    map.data.loadGeoJson('markers?latitude=34&longitude=-118&distance=100000');
+    map.data.loadGeoJson('markers?latitude=34&longitude=-118&distance=200000');
     map.addListener('click', function(e) {
         var marker = new google.maps.Marker({
             position: e.latLng,
@@ -96,23 +94,41 @@ function initMap() {
                     var request = new XMLHttpRequest();
                     request.open("POST", "/check", true);
                     request.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
-                    var obj = {address:address, zipcode:data.postal_code, latitude:e.latLng.lat(), longitude:e.latLng.lng()};
+                    var check = {address:address, zipcode:data.postal_code, latitude:e.latLng.lat(), longitude:e.latLng.lng()};
                     request.onreadystatechange = function() {
                         console.log(request);
-                        if (request.readyState == 4 && request.status == 200) {
-                            switch (request.responseText) {
-                            case "true":
-                                marker.setIcon("can.png");
-                                break
-                            case "false":
-                                marker.setIcon("cannot.png");
-                                break
+                        if (request.readyState == 4) {
+                            switch (request.status) {
+                            case 200:
+                                switch (request.responseText) {
+                                case "true":
+                                    marker.setIcon("can.png");
+                                    break;
+                                case "false":
+                                    marker.setIcon("cannot.png");
+                                    break;
+                                case "unknown":
+                                    marker.setIcon("unknown.png");
+                                    break;
+                                default:
+                                    marker.setMap(null);
+                                }
+                                break;
+                            case 400:
+                                /* "invalid location" */
+                                marker.setMap(null);
+                                break;
+                            case 429:
+                                /* "captcha" */
+                                window.alert("CAPTCHA encountered");
+                                marker.setMap(null);
+                                break;
                             default:
                                 marker.setMap(null);
                             }
                         }
                     }
-                    request.send(serialize(obj));
+                    request.send(serialize(check));
                 } else {
                     window.alert('No results found');
                 }
@@ -122,14 +138,22 @@ function initMap() {
             }
         });
     });
-    var input = document.getElementById('pac-input');
-    var searchBox = new google.maps.places.SearchBox(input);
-    map.controls[google.maps.ControlPosition.TOP_LEFT].push(input);
+    var searchInput = document.getElementById('pac-input');
+    var searchBox = new google.maps.places.SearchBox(searchInput);
+    map.controls[google.maps.ControlPosition.TOP_LEFT].push(searchInput);
     map.addListener('bounds_changed', function() {
         searchBox.setBounds(map.getBounds());
     });
+    var placeService = new google.maps.places.PlacesService(map);
     searchBox.addListener('places_changed', function() {
-        console.log(searchBox.getPlaces());
+        var places = searchBox.getPlaces();
+        if (places[0]) {
+            placeService.getDetails({placeId: places[0].place_id}, function(place, status) {
+                if (status == google.maps.places.PlacesServiceStatus.OK) {
+                    console.log(place);
+                }
+            });
+        }
     });
 }
 
