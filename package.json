@@ -1,17 +1,20 @@
 {
-  "dependencies": {
-    "co-body": "^4.0.0",
-    "coffee-script": "^1.10.0",
-    "georedis": "^3.0.2",
-    "koa": "^1.0.0",
-    "koa-bodyparser": "^2.0.1",
-    "koa-route": "^2.4.2",
-    "koa-static": "^1.4.9",
-    "node-horseman": "^2.3.0",
-    "redis": "^2.1.0",
-    "request": "^2.64.0"
-  },
-  "scripts": {
-    "start": "iced server.coffee"
-  }
+    "dependencies": {
+        "co-body": "^4.0.0",
+        "coffee-script": "^1.10.0",
+        "georedis": "^3.0.2",
+        "koa": "^1.0.0",
+        "koa-bodyparser": "^2.0.1",
+        "koa-route": "^2.4.2",
+        "koa-static": "^1.4.9",
+        "node-horseman": "^2.3.0",
+        "redis": "^2.1.0",
+        "request": "^2.64.0"
+    },
+    "engines": {
+        "node": "^4.1.2"
+    },
+    "scripts": {
+        "start": "coffee server.coffee"
+    }
 }
