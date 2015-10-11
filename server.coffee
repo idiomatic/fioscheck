@@ -18,6 +18,7 @@ georedis   = require 'georedis'
 redis      = require 'redis'
 Horseman   = require 'node-horseman'
 
+console.log "redis_url #{process.env.REDIS_URL}"
 redisClient = redis.createClient(process.env.REDIS_URL)
 
 geo      = georedis.initialize(redisClient, zset:'fios')
@@ -25,6 +26,7 @@ can      = geo.addSet('can')
 cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
+console.log "port #{process.env.PORT}"
 port = process.env.PORT ? 3001
 horsemanOptions =
     injectJquery: false
