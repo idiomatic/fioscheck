@@ -11,10 +11,20 @@
         "redis": "^2.1.0",
         "request": "^2.64.0"
     },
+    "description": "Check and map Verizon FiOS address lookups.",
     "engines": {
         "node": "^4.1.2"
     },
+    "main": "server.coffee",
+    "name": "fioscheck",
+    "repositories": [
+        {
+            "type": "git",
+            "url": "https://github.com/idiomatic/fioscheck"
+        }
+    ],
     "scripts": {
         "start": "coffee server.coffee"
-    }
+    },
+    "version": "1.0"
 }
