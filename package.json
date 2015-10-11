@@ -13,7 +13,8 @@
     },
     "description": "Check and map Verizon FiOS address lookups.",
     "engines": {
-        "node": "^4.1.2"
+        "node": "^4.1.2",
+        "npm": "^2.14.4"
     },
     "main": "server.coffee",
     "name": "fioscheck",
@@ -26,5 +27,5 @@
     "scripts": {
         "start": "coffee server.coffee"
     },
-    "version": "1.0"
+    "version": "1.0.0"
 }
