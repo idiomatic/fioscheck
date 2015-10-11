@@ -8,6 +8,8 @@
 # TODO scale icons in relation to map scale
 
 
+console.log "starting"
+
 fs         = require 'fs'
 util       = require 'util'
 koa        = require 'koa'
