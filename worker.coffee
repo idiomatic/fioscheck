@@ -1,4 +1,9 @@
 #!/usr/bin/env coffee
+#
+# TODO promisify redis
+# TODO find captcha-triggering interval
+# TODO store diagnostic somewhere other than worker's filesystem
+
 
 fs         = require 'fs'
 util       = require 'util'
@@ -17,11 +22,15 @@ cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
 
+# e.g., 'localhost:2001'
+proxy = process.env.SOCKS_PROXY
+proxyType = process.env.SOCKS_TYPE or (proxy ? 'socks5')
+
 horsemanOptions =
     injectJquery: false
-    timeout: 30000
-    #proxy: 'localhost:2001'
-    #proxyType: 'socks5'
+    timeout:      30000
+    proxy:        proxy
+    proxyType:    proxyType
 
 myIPAddr = undefined
 
@@ -131,7 +140,6 @@ start = ->
     console.log("myIPAddr #{myIPAddr}")
 
     loop
-        # XXX can promisify redis
         [key, task] = yield (cb) -> redisClient.blpop('fios:queue', 0, cb)
         {address, zipcode, latitude, longitude} = JSON.parse(task)
         status = yield check(address, zipcode, latitude, longitude)

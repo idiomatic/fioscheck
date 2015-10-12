@@ -1,5 +1,5 @@
 #!/usr/bin/env coffee
-
+#
 # TODO search box
 # TODO search result regions (e.g., search by zipcode)
 # TODO auto-check on precise address search
@@ -7,16 +7,18 @@
 # TODO double click to zoom
 # TODO scale icons in relation to map scale
 
+
 fs         = require 'fs'
 util       = require 'util'
 koa        = require 'koa'
 route      = require 'koa-route'
+koaStatic  = require 'koa-static'
 bodyParser = require 'koa-bodyparser'
 coBody     = require 'co-body'
 georedis   = require 'georedis'
 redis      = require 'redis'
 Horseman   = require 'node-horseman'
-co = require 'co'
+co         = require 'co'
 
 redisClient = redis.createClient(process.env.REDIS_URL)
 
@@ -26,11 +28,7 @@ cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
 port = process.env.PORT ? 3001
-horsemanOptions =
-    injectJquery: false
-    timeout: 30000
-    #proxy: 'localhost:2001'
-    #proxyType: 'socks5'
+
 
 start = ->
     app = koa()
@@ -52,11 +50,11 @@ start = ->
                 feature =
                     type: 'Feature'
                     geometry:
-                        type: 'Point'
+                        type:        'Point'
                         coordinates: [longitude, latitude]
                     properties:
                         address: key
-                        status: status
+                        status:  status
                 features.push(feature)
         return {type:'FeatureCollection', features}
 
@@ -92,8 +90,8 @@ start = ->
         {check} = module.exports
         @body = yield check(address, zipcode, latitude, longitude)
 
-    app.use(require('koa-static')('diagnostic'))
-    app.use(require('koa-static')('static'))
+    app.use(koaStatic('diagnostic'))
+    app.use(koaStatic('static'))
 
     app.listen(port)
 
