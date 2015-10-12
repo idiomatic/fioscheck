@@ -33,9 +33,6 @@ horsemanOptions =
     #proxyType: 'socks5'
 
 start = ->
-    # XXX per web process... redis INCR instead?
-    checkCount = 0
-
     app = koa()
     app.use(bodyParser())
 
@@ -95,6 +92,7 @@ start = ->
         {check} = module.exports
         @body = yield check(address, zipcode, latitude, longitude)
 
+    app.use(require('koa-static')('diagnostic'))
     app.use(require('koa-static')('static'))
 
     app.listen(port)
