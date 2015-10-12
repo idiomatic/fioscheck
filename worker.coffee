@@ -34,8 +34,8 @@ check = (address, zipcode, latitude, longitude) ->
         yield (cb) ->
             checking.addLocation(location, {latitude, longitude}, cb)
 
-    yield (cb) -> redis.incr("fios:checks:#{myIPAddr}", cb)
-    yield (cb) -> redis.expire("fios:checks:#{myIPAddr}", 86400, cb)
+    yield (cb) -> redisClient.incr("fios:checks:#{myIPAddr}", cb)
+    yield (cb) -> redisClient.expire("fios:checks:#{myIPAddr}", 86400, cb)
 
     url = 'http://www.verizon.com/foryourhome/ORDERING/CheckAvailability.aspx?type=pheonix&fromPersonalisation=y&flowtype=fios&incid=newheronull_null_null_es+clk'
     horseman = new Horseman(horsemanOptions)
