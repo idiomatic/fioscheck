@@ -127,7 +127,7 @@ check = (address, zipcode, latitude, longitude) ->
 
 
 start = ->
-    [_, myIPAddr] = yield (cb) -> request.get('https://api.ipify.org')
+    [_, myIPAddr] = yield (cb) -> request.get('https://api.ipify.org', cb)
     console.log("myIPAddr #{myIPAddr}")
 
     loop
