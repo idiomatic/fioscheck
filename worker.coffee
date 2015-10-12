@@ -37,7 +37,7 @@ myIPAddr = undefined
 
 check = (address, zipcode, latitude, longitude) ->
     location = "#{address}, #{zipcode}"
-    fios = undefined
+    status = undefined
 
     if latitude? and longitude?
         yield (cb) ->
@@ -59,11 +59,10 @@ check = (address, zipcode, latitude, longitude) ->
     if yield horseman.exists('#securityCheck')
         # captcha.  damn.
         yield horseman.screenshot('diagnostic/horseman_securitycheck.png')
-        console.error("captcha #{location}")
         # HACK no throw because we need to remove location from checking set
         #@throw(429, 'captcha')
         #@status = 429
-        return 'captcha'
+        status = 'captcha'
 
     else
         if yield horseman.exists('#dvAddressOption2')
@@ -90,21 +89,18 @@ check = (address, zipcode, latitude, longitude) ->
             #yield (cb) -> fs.writeFile('diagnostic/horseman_products.html', html, cb)
             #yield horseman.screenshot('diagnostic/horseman_products.png')
 
-            fios = yield horseman.exists('.products_list h4:contains("FiOS Internet")')
+            status = yield horseman.exists('.products_list h4:contains("FiOS Internet")')
 
         else if yield horseman.exists(':contains("service you wanted isn\'t available")')
-            console.log("unavailable #{location}")
-            fios = false
+            status = 'unavailable'
 
         else if yield horseman.exists(':contains("address you entered is not served by Verizon")')
-            console.log("no service #{location}")
-            fios = false
+            status = 'no service'
 
         else if yield horseman.exists(':contains("unable to validate the address")')
-            console.log("invalid location #{location}")
             #@throw(400, "invalid location")
             #@status = 400
-            return 'invalid location'
+            status = 'invalid location'
 
         # TODO This address already has a pending Verizon Order
 
@@ -113,26 +109,26 @@ check = (address, zipcode, latitude, longitude) ->
             yield (cb) -> fs.writeFile('diagnostic/horseman_unknown.html', html, cb)
             yield horseman.screenshot('diagnostic/horseman_unknown.png')
             console.log("unknown #{location}")
-            return "unknown"
+            status = 'unknown'
 
     horseman.close()
 
     if latitude? and longitude?
-        if fios?
-            if fios
-                yield [
-                    (cb) -> can.addLocation(location, {latitude, longitude}, cb)
-                    (cb) -> cannot.removeLocation(location, cb)
-                ]
-            else
-                yield [
-                    (cb) -> cannot.addLocation(location, {latitude, longitude}, cb)
-                    (cb) -> can.removeLocation(location, cb)
-                ]
+        if status is true
+            yield [
+                (cb) -> can.addLocation(location, {latitude, longitude}, cb)
+                (cb) -> cannot.removeLocation(location, cb)
+            ]
+        else if status?
+            yield [
+                (cb) -> cannot.addLocation(location, {latitude, longitude}, cb)
+                (cb) -> can.removeLocation(location, cb)
+            ]
         yield (cb) ->
             checking.removeLocation(location, cb)
 
-    return fios
+    console.log("#{status} #{location}")
+    return status
 
 
 start = ->
