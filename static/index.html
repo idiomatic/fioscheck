@@ -101,6 +101,9 @@ function initMap() {
                             switch (request.status) {
                             case 200:
                                 switch (request.responseText) {
+                                case "checking":
+                                    marker.setIcon("checking.png");
+                                    break;
                                 case "true":
                                     marker.setIcon("can.png");
                                     break;

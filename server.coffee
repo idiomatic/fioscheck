@@ -7,9 +7,6 @@
 # TODO double click to zoom
 # TODO scale icons in relation to map scale
 
-
-console.log "starting"
-
 fs         = require 'fs'
 util       = require 'util'
 koa        = require 'koa'
@@ -20,7 +17,6 @@ georedis   = require 'georedis'
 redis      = require 'redis'
 Horseman   = require 'node-horseman'
 
-console.log "redis_url #{process.env.REDIS_URL}"
 redisClient = redis.createClient(process.env.REDIS_URL)
 
 geo      = georedis.initialize(redisClient, zset:'fios')
@@ -28,7 +24,6 @@ can      = geo.addSet('can')
 cannot   = geo.addSet('cannot')
 checking = geo.addSet('checking')
 
-console.log "port #{process.env.PORT}"
 port = process.env.PORT ? 3001
 horsemanOptions =
     injectJquery: false
@@ -88,17 +83,25 @@ app.use route.post '/check', (next) ->
         {address, zipcode, latitude, longitude} = @request.body
     latitude  = parseFloat(latitude)
     longitude = parseFloat(longitude)
-    location = "#{address}, #{zipcode}"
-    fios = undefined
 
     @assert(address and /./.test(address), 400, 'Address missing')
     @assert(zipcode and /\d{5}/.test(zipcode), 400, 'Zipcode missing')
 
-    console.log "##{++checkCount} checking #{location}"
+    #@body = JSON.stringify(check(address, zipcode, latitude, longitude))
+    @body = 'checking'
+    do ->
+        JSON.stringify(check(address, zipcode, latitude, longitude))
+
+
+check = (address, zipcode, latitude, longitude) ->
+    location = "#{address}, #{zipcode}"
+    fios = undefined
 
     if latitude? and longitude?
         yield (cb) ->
             checking.addLocation(location, {latitude, longitude}, cb)
+
+    console.log "##{++checkCount} checking #{location}"
 
     url = 'http://www.verizon.com/foryourhome/ORDERING/CheckAvailability.aspx?type=pheonix&fromPersonalisation=y&flowtype=fios&incid=newheronull_null_null_es+clk'
     horseman = new Horseman(horsemanOptions)
@@ -116,8 +119,8 @@ app.use route.post '/check', (next) ->
         console.log "captcha"
         # HACK no throw because we need to remove location from checking set
         #@throw(429, 'captcha')
-        @status = 429
-        @body = 'captcha'
+        #@status = 429
+        return 'captcha'
 
     else
         if yield horseman.exists('#dvAddressOption2')
@@ -157,8 +160,8 @@ app.use route.post '/check', (next) ->
         else if yield horseman.exists(':contains("unable to validate the address")')
             console.log "invalid location #{location}"
             #@throw(400, "invalid location")
-            @status = 400
-            @body = 'invalid location'
+            #@status = 400
+            return 'invalid location'
 
         # TODO This address already has a pending Verizon Order
 
@@ -167,7 +170,7 @@ app.use route.post '/check', (next) ->
             yield (cb) -> fs.writeFile('horseman unknown.html', html, cb)
             yield horseman.screenshot('horseman unknown.png')
             console.log "unknown"
-            @body = "unknown"
+            return "unknown"
 
     horseman.close()
 
@@ -186,7 +189,7 @@ app.use route.post '/check', (next) ->
         yield (cb) ->
             checking.removeLocation(location, cb)
 
-    @body = JSON.stringify(fios)
+    return fios
 
 
 app.use(require('koa-static')('static'))
