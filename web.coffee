@@ -14,11 +14,11 @@ koa        = require 'koa'
 route      = require 'koa-route'
 koaStatic  = require 'koa-static'
 bodyParser = require 'koa-bodyparser'
+co         = require 'co'
 coBody     = require 'co-body'
 georedis   = require 'georedis'
 redis      = require 'redis'
 Horseman   = require 'node-horseman'
-co         = require 'co'
 
 redisClient = redis.createClient(process.env.REDIS_URL)
 

@@ -13,6 +13,7 @@ redis      = require 'redis'
 request    = require 'request'
 Horseman   = require 'node-horseman'
 co         = require 'co'
+coWait     = require 'co-wait'
 
 redisClient = redis.createClient(process.env.REDIS_URL)
 
@@ -50,14 +51,17 @@ check = (address, zipcode, latitude, longitude) ->
     horseman = new Horseman(horsemanOptions)
     yield horseman.open(url)
     yield horseman.waitForSelector('#txtAddress')
-
+    yield coWait(100)
+ 
     yield horseman.type('#txtAddress', address)
     yield horseman.type('#txtZip', zipcode)
     yield horseman.click('#btnContinueOverlay')
     yield horseman.waitForSelector('#dvAddressOption0, #securityCheck')
+    yield coWait(100)
 
     if yield horseman.exists('#securityCheck')
         # captcha.  damn.
+        yield coWait(100)
         yield horseman.screenshot('diagnostic/horseman_securitycheck.png')
         # HACK no throw because we need to remove location from checking set
         #@throw(429, 'captcha')
@@ -71,25 +75,36 @@ check = (address, zipcode, latitude, longitude) ->
 
         if yield horseman.exists('#dvAddressOption0')
             # "Is this your address?"  Yes.
+            yield horseman.click('#dvAddressOption0 a')
             yield horseman.click('input[value="Continue"]')
             #yield horseman.screenshot('diagnostic/horseman_address_verification.png')
             yield horseman.waitForNextPage()
-
             yield horseman.waitForSelector('#checkavailability, #changeserv')
+            yield coWait(100)
+
+            if yield horseman.exists(':contains("This address already has a pending Verizon Order")')
+                yield horseman.click('#rdoNotMineOrd a')
+                yield horseman.screenshot('diagnostic/horseman_pending_order.png')
+                yield horseman.click('input[value="Continue"]')
+                yield horseman.waitForSelector('#checkavailability')
+                yield coWait(100)
 
             if yield horseman.exists(':contains("This address already has Verizon service")')
                 #yield horseman.screenshot('diagnostic/horseman_already_has_verizon.png')
                 yield horseman.click('#rdoNoNotMine ~ a')
                 yield horseman.waitForSelector(':contains("Is the current resident staying?")')
+                yield coWait(100)
                 yield horseman.click('#rdoNoAmMovingThere ~ a')
                 yield horseman.click('input[value="Continue"]')
                 yield horseman.waitForSelector('#checkavailability')
+                yield coWait(100)
 
-            #html = yield horseman.html()
-            #yield (cb) -> fs.writeFile('diagnostic/horseman_products.html', html, cb)
-            #yield horseman.screenshot('diagnostic/horseman_products.png')
+            # in case of unexpected false...
+            html = yield horseman.html()
+            yield (cb) -> fs.writeFile('diagnostic/horseman_products.html', html, cb)
+            yield horseman.screenshot('diagnostic/horseman_products.png')
 
-            status = yield horseman.exists('.products_list h4:contains("FiOS Internet")')
+            status = yield horseman.exists('.products_list h4:contains("Fios Internet")')
 
         else if yield horseman.exists(':contains("service you wanted isn\'t available")')
             status = 'unavailable'
