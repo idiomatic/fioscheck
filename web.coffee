@@ -8,20 +8,25 @@
 # TODO scale icons in relation to map scale
 
 
-fs         = require 'fs'
-util       = require 'util'
+fs   = require 'fs'
+util = require 'util'
+
+Horseman = require 'node-horseman'
+
 koa        = require 'koa'
 route      = require 'koa-route'
 koaStatic  = require 'koa-static'
 bodyParser = require 'koa-bodyparser'
-co         = require 'co'
-coBody     = require 'co-body'
-georedis   = require 'georedis'
-redis      = require 'redis'
-Horseman   = require 'node-horseman'
 
+co     = require 'co'
+coBody = require 'co-body'
+
+redis       = require 'redis'
+coRedis     = require 'co-redis'
 redisClient = redis.createClient(process.env.REDIS_URL)
+redis       = coRedis(redisClient)
 
+georedis = require 'georedis'
 geo      = georedis.initialize(redisClient, zset:'fios')
 can      = geo.addSet('can')
 cannot   = geo.addSet('cannot')
@@ -90,6 +95,21 @@ start = ->
         {check} = module.exports
         @body = yield check(address, zipcode, latitude, longitude)
 
+    app.use route.get '/diagnostic.html', (next) ->
+        html = yield redis.get('fios:diagnostic.html')
+        if html
+            @body = html
+        else
+            yield next
+
+    app.use route.get '/diagnostic.png', (next) ->
+        png = yield redis.get('fios:diagnostic.png')
+        if png
+            @body = new Buffer(png, 'base64')
+            @type = 'image/png'
+        else
+            yield next
+
     app.use(koaStatic('diagnostic'))
     app.use(koaStatic('static'))
 
@@ -100,7 +120,7 @@ start = ->
 
 check = (address, zipcode, latitude, longitude) ->
     task = JSON.stringify({address, zipcode, latitude, longitude})
-    yield (cb) -> redisClient.rpush('fios:queue', task, cb)
+    yield redis.rpush('fios:queue', task)
     return 'checking'
 
 
